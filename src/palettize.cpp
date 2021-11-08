@@ -194,7 +194,8 @@ RecalculateCentroids(kmeans_context *Context)
     {
         cluster *Cluster = Context->Clusters + ClusterIndex;
 
-        // Assert(Cluster->ObservationCount);
+        // It is erroneous to assert that cluster->observation_count is
+        // nonzero, see: https://stackoverflow.com/a/54821667
         if(Cluster->ObservationCount)
         {
             Cluster->Centroid = Cluster->ObservationSum*(1.0f / Cluster->ObservationCount);
@@ -372,6 +373,9 @@ main(int ArgCount, char **Args)
            PrevClusterIndexBuffer.Memory &&
            Palette.Memory)
         {
+            // For those curious about how the algorithm works, see:
+            // https://www.youtube.com/watch?v=4b5d3muPQmA
+
             random_series Entropy = SeedSeries(Config.Seed);
             for(int ClusterIndex = 0;
                 ClusterIndex < Context->ClusterCount;
