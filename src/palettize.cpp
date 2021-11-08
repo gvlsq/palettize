@@ -220,14 +220,14 @@ SortClustersByCentroid(kmeans_context *Context, sort_type SortType)
         {
             FocalColor = {87.73703347354422f,
                           -86.18463649762525f,
-                          83.18116474777854};
+                          83.18116474777854f};
         } break;
         
         case SortType_Blue:
         {
-            FocalColor = {32.302586667249486,
-                          79.19666178930935,
-                          -107.86368104495168};
+            FocalColor = {32.302586667249486f,
+                          79.19666178930935f,
+                          -107.86368104495168f};
         } break;
     }
 
