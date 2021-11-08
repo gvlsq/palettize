@@ -1,0 +1,8 @@
+Add a color quantization command line option
+Automatically determine k
+	alanzucconi.com/2015/05/24/how-to-find-the-main-colours-in-an-image/
+	making.lyst.com/2014/02/22/color-detection/
+Support inertia to determine the best result from multiple runs
+	scikit-learn.org/stable/modules/generated/sklearn.cluster.KMeans.html
+Support k-means++ as a seeding option
+	geeksforgeeks.org/ml-k-means-algorithm/
