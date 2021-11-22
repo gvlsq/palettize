@@ -10,9 +10,9 @@ Original photo by Francesco Ungaro from Pexels.
 
 This application uses a standard implementation of k-means clustering to generate palettes. The twist is in how colors from the input image are compared to each cluster.
 
-A straightforward implementation might compute these color differences using RGB values directly from the image, but this is flawed: two colors that are not perceptually similar might still be considered similar because of how the math works out.
+A straightforward implementation might compute these color differences using RGB values directly from the image, but this can lead to issues: the math might say that two colors are perceptually similar when in reality they are not.
 
-What works better is to transform the colors from the image so that they can be compared in a way that mirrors how the human eye actually works. That is exactly what [CIELAB](https://en.wikipedia.org/wiki/CIELAB_color_space#Perceptual_differences), the color space used in this application, was designed to do.
+A better approach might transform each color so that its value accounts for human perception - then the comparisons should be more meaningful. To achieve this in this app, all colors are transformed to [CIELAB](https://en.wikipedia.org/wiki/CIELAB_color_space#Perceptual_differences) before any comparisons take place.
 
 ## Usage
 
