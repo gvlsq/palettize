@@ -29,3 +29,7 @@ The following options are accepted on the command line, in order:
     * **blue** orders the colors by the distance of each color from blue
 * ```[dest path]``` - Path used for the output image
     * **palette.bmp** is used by default
+
+## License
+
+See the [LICENSE](https://github.com/gvlsq/palettize/blob/main/LICENSE) file.
