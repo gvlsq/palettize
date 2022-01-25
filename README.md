@@ -6,15 +6,15 @@ Palette generator based on k-means clustering with CIELAB colors.
 
 Original photo by Francesco Ungaro from Pexels.
 
-## Motivation
+## About
 
 This application uses a standard implementation of k-means clustering to generate palettes. The twist is in how colors from the source image are interpreted by the program.
 
-A straightforward implementation might use RGB values directly from the image, but this can lead to issues: the distance function for k-means might say that two colors are similar when, perceptually, they are not.
+A straightforward implementation might use RGB values directly from the image, but this can lead to issues: the distance function for k-means might indicate that two colors are similar when, perceptually, they are not.
 
-This program transforms colors into [CIELAB](https://en.wikipedia.org/wiki/CIELAB_color_space#Perceptual_differences) space before performing any comparisons take place. This makes comparisons more meaningful and hopefully produces a more accurate palette.
+This program transforms colors into [CIELAB](https://en.wikipedia.org/wiki/CIELAB_color_space#Perceptual_differences) space before performing any comparisons. The differences between colors should align better with how human eyes actually work, and the resulting palette should be more accurate.
 
-For a visual description of how k-means clustering works, see [this YouTube video](https://youtu.be/4b5d3muPQmA?t=33).
+For a description of the k-means algorithm itself, see [this YouTube video](https://youtu.be/4b5d3muPQmA?t=33).
 
 ## Usage
 
