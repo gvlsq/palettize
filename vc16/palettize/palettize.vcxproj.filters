@@ -8,6 +8,5 @@
     <ClInclude Include="..\..\src\palettize_math.h" />
     <ClInclude Include="..\..\src\palettize_random.h" />
     <ClInclude Include="..\..\src\palettize_string.h" />
-    <ClInclude Include="..\..\src\palettize_time.h" />
   </ItemGroup>
 </Project>

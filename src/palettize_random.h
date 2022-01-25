@@ -1,41 +1,34 @@
-#if !defined(PALETTIZE_RANDOM_H)
+#ifndef PALETTIZE_RANDOM_H
+#define PALETTIZE_RANDOM_H
 
-struct random_series
-{
-    u32 Seed;
+struct Random_Series {
+	u32 seed;
 };
 
-inline random_series
-SeedSeries(u32 Seed)
-{
-    random_series Result;
-    Result.Seed = Seed;
-    
-    return(Result);
+inline Random_Series seed_series(u32 seed) {
+	Random_Series result;
+	result.seed = seed;
+
+	return result;
 }
 
-inline u32
-RandomU32(random_series *Series)
-{
-    // 32-bit Xorshift
-    u32 Result = Series->Seed;
-	Result ^= Result << 13;
-	Result ^= Result >> 17;
-    Result ^= Result << 5;
-    
-    Series->Seed = Result;
-    
-    return(Result);
+inline u32 random_u32(Random_Series *series) {
+	// 32-bit Xorshift
+	u32 result = series->seed;
+	result ^= result << 13;
+	result ^= result >> 17;
+	result ^= result << 5;
+
+	series->seed = result;
+
+	return result;
 }
 
-inline u32
-RandomU32Between(random_series *Series, u32 Min, u32 Max)
-{
-    u32 Result = (Min + (RandomU32(Series) % (Max - Min)));
-    Assert((Min <= Result) && (Result <= Max));
+inline u32 random_u32_between(Random_Series *series, u32 min, u32 max) {
+	u32 result = min + (random_u32(series) % (max - min));
+	assert(min <= result && result <= max);
 
-    return(Result);
+	return result;
 }
 
-#define PALETTIZE_RANDOM_H
 #endif

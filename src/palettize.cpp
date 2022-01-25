@@ -2,509 +2,374 @@
 #include <stdlib.h>
 #include <time.h>
 
-#define STB_IMAGE_IMPLEMENTATION
 #pragma warning(push, 0)
+#define STB_IMAGE_IMPLEMENTATION
 #include "stb_image.h"
 #pragma warning(pop)
 
 #include "palettize.h"
 
-static palettize_config
-ParseCommandLine(int ArgCount, char **Args)
-{
-    palettize_config Config = {};
+static const int MAX_BITMAP_DIM = 100;
 
-    timestamp NowUTC = GetTimestampUTC();
-    u32 Seed = (NowUTC.Year +
-                NowUTC.Month*NowUTC.Day +
-                NowUTC.Hour*(u32)Square((f32)NowUTC.Minute) +
-                (u32)Cube((f32)NowUTC.Second - 0.025f)*0xFACADE);
+static const int PALETTE_BITMAP_WIDTH = 512;
+static const int PALETTE_BITMAP_HEIGHT = 64;
 
-    Config.SourcePath = 0;
-    Config.ClusterCount = 5;
-    Config.Seed = Seed;
-    Config.SortType = SortType_Weight;
-    Config.DestPath = "palette.bmp";
+static Palettize_Config parse_config_from_command_line(int argc, char **argv) {
+	Palettize_Config config = {};
+	config.source_path = 0;
+	config.cluster_count = 5;
+	config.seed = (u32)time(0);
+	config.sort_type = SORT_TYPE_WEIGHT;
+	config.dest_path = "palette.bmp";
 
-    if(ArgCount > 1)
-    {
-        Config.SourcePath = Args[1];
-    }
-    if(ArgCount > 2)
-    {
-        int ClusterCount = atoi(Args[2]);
-        Config.ClusterCount = Clampi(1, ClusterCount, 64);
-    }
-    if(ArgCount > 3)
-    {
-        Config.Seed = (u32)atoi(Args[3]);
-    }
-    if(ArgCount > 4)
-    {
-        char *SortTypeString = Args[4];
-        if(StringsMatch(SortTypeString, "red", false))
-        {
-            Config.SortType = SortType_Red;
-        }
-        else if(StringsMatch(SortTypeString, "green", false))
-        {
-            Config.SortType = SortType_Green;
-        }
-        else if(StringsMatch(SortTypeString, "blue", false))
-        {
-            Config.SortType = SortType_Blue;
-        }
-    }
-    if(ArgCount > 5)
-    {
-        Config.DestPath = Args[5];
-    }
+	if (argc > 1) {
+		config.source_path = argv[1];
+	}
+	if (argc > 2) {
+		int cluster_count = atoi(argv[2]);
+		config.cluster_count = clampi(1, cluster_count, 64);
+	}
+	if (argc > 3) {
+		config.seed = (u32)atoi(argv[3]);
+	}
+	if (argc > 4) {
+		char *sort_type_string = argv[4];
+		if (strings_match(sort_type_string, "red", false)) {
+			config.sort_type = SORT_TYPE_RED;
+		} else if (strings_match(sort_type_string, "green", false)) {
+			config.sort_type = SORT_TYPE_GREEN;
+		} else if (strings_match(sort_type_string, "blue", false)) {
+			config.sort_type = SORT_TYPE_BLUE;
+		}
+	}
+	if (argc > 5) {
+		config.dest_path = argv[5];
+	}
 
-    return(Config);
+	return config;
 }
 
-static bitmap
-LoadAndScaleBitmap(char *Path, f32 MaxResizedDim)
-{
-    bitmap Result = {};
+static void load_bitmap(Bitmap *bitmap, char *path) {
+	bitmap->memory = stbi_load(path, &bitmap->width, &bitmap->height, 0, STBI_rgb_alpha);
+	if (!bitmap->memory) {
+		fprintf(stderr, "stb_image failed to load %s: %s\n", path, stbi_failure_reason());
+		exit(EXIT_FAILURE);
+	}
 
-    int SourceWidth;
-    int SourceHeight;
-    void *SourceMemory = stbi_load(Path, &SourceWidth, &SourceHeight, 0, sizeof(u32));
-    if(SourceMemory)
-    {
-        int SourcePitch = SourceWidth*sizeof(u32);
-
-        f32 ScaleFactor = MaxResizedDim / (f32)Maximum(SourceWidth, SourceHeight);
-        int ScaledWidth = RoundToInt(SourceWidth*ScaleFactor);
-        int ScaledHeight = RoundToInt(SourceHeight*ScaleFactor);
-
-        Result.Width = ScaledWidth;
-        Result.Height = ScaledHeight;
-        Result.Pitch = ScaledWidth*sizeof(u32);
-        Result.Memory = malloc(Result.Pitch*ScaledHeight);
-
-        u8 *Row = (u8 *)Result.Memory;
-        for(int Y = 0;
-            Y < ScaledHeight;
-            Y++)
-        {
-            u32 *Texel = (u32 *)Row;
-            for(int X = 0;
-                X < ScaledWidth;
-                X++)
-            {
-                f32 U = (f32)X / ((f32)ScaledWidth - 1.0f);
-                f32 V = (f32)Y / ((f32)ScaledHeight - 1.0f);
-
-                Assert((0.0f <= U) && (U <= 1.0f));
-                Assert((0.0f <= V) && (V <= 1.0f));
-
-                int SampleX = RoundToInt(U*((f32)SourceWidth - 1.0f));
-                int SampleY = RoundToInt(V*((f32)SourceHeight - 1.0f));
-
-                Assert((0 <= SampleX) && (SampleX < SourceWidth));
-                Assert((0 <= SampleY) && (SampleY < SourceHeight));
-                
-                u32 Sample = *(u32 *)((u8 *)SourceMemory +
-                                      (SampleX*sizeof(u32)) +
-                                      (SampleY*SourcePitch));
-                
-                *Texel++ = Sample;
-            }
-
-            Row += Result.Pitch;
-        }
-
-        stbi_image_free(SourceMemory);
-    }
-    else
-    {
-        fprintf(stderr, "stb_image failed: %s\n", stbi_failure_reason());
-    }
-
-    return(Result);
+	bitmap->pitch = sizeof(u32)*bitmap->width;
 }
 
-static bitmap
-AllocateBitmap(int Width, int Height)
-{
-    bitmap Result;
-    Result.Memory = malloc(sizeof(u32)*Width*Height);
-    Result.Width = Width;
-    Result.Height = Height;
-    Result.Pitch = sizeof(u32)*Width;
-    
-    return(Result);
+static void allocate_bitmap(Bitmap *bitmap, int width, int height) {
+	bitmap->memory = malloc(sizeof(u32)*width*height);
+	bitmap->width = width;
+	bitmap->height = height;
+	bitmap->pitch = sizeof(u32)*width;
 }
 
-static void
-ClearObservations(cluster *Cluster)
-{
-    Cluster->ObservationSum = V3i(0, 0, 0);
-    Cluster->ObservationCount = 0;
+static void free_bitmap(Bitmap *bitmap) {
+	free(bitmap->memory);
+	bitmap->memory = 0;
 }
 
-static void
-InitializeKMeansContext(kmeans_context *Context, int ClusterCount)
-{
-    Context->ClusterCount = ClusterCount;
-    Context->Clusters = (cluster *)malloc(sizeof(cluster)*ClusterCount);
+static void resize_bitmap(Bitmap *bitmap, int max_dim) {
+	float resize_factor = (float)max_dim / (float)maximum(bitmap->width, bitmap->height);
+
+	Bitmap resized_bitmap;
+	allocate_bitmap(&resized_bitmap,
+					roundi(bitmap->width*resize_factor),
+					roundi(bitmap->height*resize_factor));
+
+	int x0 = 0;
+	int x1 = resized_bitmap.width;
+	int y0 = 0;
+	int y1 = resized_bitmap.height;
+
+	u8 *row = (u8 *)resized_bitmap.memory;
+	for (int y = y0; y < y1; y++) {
+		u32 *texel = (u32 *)row;
+		for (int x = x0; x < x1; x++) {
+			float u = (float)x / ((float)resized_bitmap.width - 1.0f);
+			float v = (float)y / ((float)resized_bitmap.height - 1.0f);
+			assert(0.0f <= u && u <= 1.0f);
+			assert(0.0f <= v && v <= 1.0f);
+
+			int sample_x = roundi(u*((float)bitmap->width - 1.0f));
+			int sample_y = roundi(v*((float)bitmap->height - 1.0f));
+			assert(0 <= sample_x && sample_x < bitmap->width);
+			assert(0 <= sample_y && sample_y < bitmap->height);
+
+			u32 sample = *(u32 *)((u8 *)bitmap->memory + sample_x*sizeof(u32) + sample_y*bitmap->pitch);
+
+			*texel++ = sample;
+		}
+
+		row += resized_bitmap.pitch;
+	}
+
+	free_bitmap(bitmap);
+	*bitmap = resized_bitmap;
 }
 
-static u32
-AssignObservation(kmeans_context *Context, v3 Observation)
-{
-    f32 ClosestDistSquared = F32Max;
-    cluster *ClosestCluster = 0;
+static u32 assign_observation_to_cluster(KMeans_Cluster *clusters, int cluster_count,
+										 Vector3 observation) {
+	float closest_dist_squared = FLOAT_MAX;
+	u32 closest_cluster_index = 0;
 
-    for(int ClusterIndex = 0;
-        ClusterIndex < Context->ClusterCount;
-        ClusterIndex++)
-    {
-        cluster *Cluster = Context->Clusters + ClusterIndex;
+	for (int i = 0; i < cluster_count; i++) {
+		KMeans_Cluster *cluster = &clusters[i];
 
-        f32 d = LengthSquared(Cluster->Centroid - Observation);
-        if(d < ClosestDistSquared)
-        {
-            ClosestDistSquared = d;
-            ClosestCluster = Cluster;
-        }
-    }
+		float d = length_squared(observation - cluster->centroid);
+		if (d < closest_dist_squared) {
+			closest_dist_squared = d;
+			closest_cluster_index = (u32)i;
+		}
+	}
+	assert(0 <= closest_cluster_index && closest_cluster_index < (u32)cluster_count);
 
-    Assert(ClosestCluster);
+	KMeans_Cluster *closest_cluster = &clusters[closest_cluster_index];
+	if (closest_cluster->observation_count == closest_cluster->observation_capacity) {
+		closest_cluster->observation_capacity *= 2;
+		closest_cluster->observations = (Vector3 *)realloc(closest_cluster->observations, sizeof(Vector3)*closest_cluster->observation_capacity);
+	}
+	closest_cluster->observations[closest_cluster->observation_count++] = observation;
 
-    ClosestCluster->ObservationSum += Observation;
-    ClosestCluster->ObservationCount++;
-    
-    // Returning the index of the closest cluster for our early out in the loop
-    // where this function is called
-    u32 Result = (u32)(ClosestCluster - Context->Clusters);
-    Assert(Result < (u32)Context->ClusterCount);
-    
-    return(Result);
+	return closest_cluster_index;
 }
 
-static void
-RecalculateCentroids(kmeans_context *Context)
-{
-    for(int ClusterIndex = 0;
-        ClusterIndex < Context->ClusterCount;
-        ClusterIndex++)
-    {
-        cluster *Cluster = Context->Clusters + ClusterIndex;
+static void recalculate_cluster_centroids(KMeans_Cluster *clusters, int cluster_count) {
+	for (int i = 0; i < cluster_count; i++) {
+		KMeans_Cluster *cluster = &clusters[i];
 
-        // It is erroneous to assert that cluster->observation_count is
-        // nonzero, see: https://stackoverflow.com/a/54821667
-        if(Cluster->ObservationCount)
-        {
-            Cluster->Centroid = Cluster->ObservationSum*(1.0f / Cluster->ObservationCount);
-        }
-        ClearObservations(Cluster);
-    }
+		Vector3 sum = V3i(0, 0, 0);
+		for (int j = 0; j < cluster->observation_count; j++) {
+			sum += cluster->observations[j];
+		}
+
+		// It's erroneous to assert that cluster->observation_count is nonzero,
+		// see: https://stackoverflow.com/a/54821667. Replace the zero case below
+		// with a reseed?
+
+		if (cluster->observation_count) {
+			cluster->centroid = sum*(1.0f / cluster->observation_count);
+		} else {
+			cluster->centroid = sum;
+		}
+
+		cluster->observation_count = 0;
+	}
 }
 
-static void
-SortClustersByCentroid(kmeans_context *Context, sort_type SortType)
-{
-    v3 FocalColor = V3i(0, 0, 0);
-    switch(SortType)
-    {
-        case SortType_Red:
-        {
-            FocalColor = {53.23288178584245f,
-                          80.10930952982204f,
-                          67.22006831026425f};
-        } break;
-        
-        case SortType_Green:
-        {
-            FocalColor = {87.73703347354422f,
-                          -86.18463649762525f,
-                          83.18116474777854f};
-        } break;
-        
-        case SortType_Blue:
-        {
-            FocalColor = {32.302586667249486f,
-                          79.19666178930935f,
-                          -107.86368104495168f};
-        } break;
-    }
+static void sort_clusters_by_centroid(KMeans_Cluster *clusters, int cluster_count,
+									  Sort_Type sort_type) {
+	Vector3 focal_color = V3i(0, 0, 0);
+	switch (sort_type) {
+		case SORT_TYPE_RED:
+			focal_color = {
+				53.23288178584245f,
+				80.10930952982204f,
+				67.22006831026425f
+			};
+			break;
 
-    for(int Outer = 0;
-        Outer < Context->ClusterCount;
-        Outer++)
-    {
-        b32 Swapped = false;
-        
-        for(int Inner = 0;
-            Inner < (Context->ClusterCount - 1);
-            Inner++)
-        {
-            cluster *ClusterA = Context->Clusters + Inner;
-            cluster *ClusterB = Context->Clusters + Inner + 1;
-            
-            if(SortType == SortType_Weight)
-            {
-                if(ClusterB->ObservationCount > ClusterA->ObservationCount)
-                {
-                    cluster Swap = *ClusterA;
-                    *ClusterA = *ClusterB;
-                    *ClusterB = Swap;
-                    
-                    Swapped = true;
-                }
-            }
-            else if((SortType == SortType_Red) ||
-                    (SortType == SortType_Green) ||
-                    (SortType == SortType_Blue))
-            {
-                f32 DistSquaredToColorA = LengthSquared(FocalColor - ClusterA->Centroid);
-                f32 DistSquaredToColorB = LengthSquared(FocalColor - ClusterB->Centroid);
-                if(DistSquaredToColorB < DistSquaredToColorA)
-                {
-                    cluster Swap = *ClusterA;
-                    *ClusterA = *ClusterB;
-                    *ClusterB = Swap;
-                    
-                    Swapped = true;
-                }
-            }
-        }
-        
-        if(!Swapped)
-        {
-            break;
-        }
-    }
+		case SORT_TYPE_GREEN:
+			focal_color = {
+				 87.73703347354422f,
+				-86.18463649762525f,
+				 83.18116474777854f
+			};
+			break;
+
+		case SORT_TYPE_BLUE:
+			focal_color = {
+				 32.302586667249486f,
+				 79.19666178930935f,
+				-107.86368104495168f
+			};
+			break;
+	}
+
+	for (int i = 0; i < cluster_count; i++) {
+		bool swapped = false;
+
+		for (int j = 0; j < (cluster_count - 1); j++) {
+			KMeans_Cluster *cluster_a = clusters + j;
+			KMeans_Cluster *cluster_b = clusters + j + 1;
+
+			if (sort_type == SORT_TYPE_WEIGHT) {
+				if (cluster_b->observation_count > cluster_a->observation_count) {
+					KMeans_Cluster swap = *cluster_a;
+					*cluster_a = *cluster_b;
+					*cluster_b = swap;
+
+					swapped = true;
+				}
+			} else if (sort_type == SORT_TYPE_RED || sort_type == SORT_TYPE_GREEN || sort_type == SORT_TYPE_BLUE) {
+				float dist_squared_to_color_a = length_squared(cluster_a->centroid - focal_color);
+				float dist_squared_to_color_b = length_squared(cluster_b->centroid - focal_color);
+				if (dist_squared_to_color_b < dist_squared_to_color_a) {
+					KMeans_Cluster swap = *cluster_a;
+					*cluster_a = *cluster_b;
+					*cluster_b = swap;
+
+					swapped = true;
+				}
+			}
+		}
+
+		if (!swapped) break;
+	}
 }
 
-static int
-ComputeTotalObservationCount(kmeans_context *Context)
-{
-    int Result = 0;
+static void export_bmp(Bitmap *bitmap, char *path) {
+	FILE *file = fopen(path, "wb");
+	if (!file) {
+		fprintf(stderr, "fopen failed on %s\n", path);
+		exit(EXIT_FAILURE);
+	}
 
-    for(int ClusterIndex = 0;
-        ClusterIndex < Context->ClusterCount;
-        ClusterIndex++)
-    {
-        cluster *Cluster = Context->Clusters + ClusterIndex;
-        Result += Cluster->ObservationCount;
-    }
+	// Swizzling red and blue channels because that's what BMPs expect
+	int x0 = 0;
+	int x1 = bitmap->width;
+	int y0 = 0;
+	int y1 = bitmap->height;
 
-    return(Result);
+	u8 *row = (u8 *)bitmap->memory;
+	for (int y = y0; y < y1; y++) {
+		u32 *texel = (u32 *)row;
+		for (int x = x0; x < x1; x++) {
+			u32 swizzled = (*texel & 0xFF) << 16 | ((*texel >> 8) & 0xFF) << 8 | ((*texel >> 16) & 0xFF) << 0 | ((*texel >> 24) & 0xFF) << 24;
+
+			*texel++ = swizzled;
+		}
+
+		row += bitmap->pitch;
+	}
+
+	u32 bitmap_size = (u32)(bitmap->pitch*bitmap->height);
+
+	Bitmap_Header header = {};
+	header.type = 0x4D42;
+	header.file_size = sizeof(header) + bitmap_size;
+	header.off_bits = sizeof(header);
+	header.size = 40; // sizeof(BITMAPINFOHEADER)
+	header.width = bitmap->width;
+	header.height = bitmap->height;
+	header.planes = 1;
+	header.bit_count = 32;
+	header.compression = BI_RGB;
+
+	fwrite(&header, sizeof(header), 1, file);
+	fwrite(bitmap->memory, bitmap_size, 1, file);
+
+	fclose(file);
 }
 
-static void
-ExportBMP(bitmap Bitmap, char *Path)
-{
-    FILE *File = fopen(Path, "wb");
-    if(File)
-    {
-        // Swizzling the red and blue components of each texel because
-        // that's how BMPs expect channels to be ordered
-        u8 *Row = (u8 *)Bitmap.Memory;
-        for(int Y = 0;
-            Y < Bitmap.Height;
-            Y++)
-        {
-            u32 *TexelPtr = (u32 *)Row;
-            for(int X = 0;
-                X < Bitmap.Width;
-                X++)
-            {
-                u32 Texel = *TexelPtr;
-                u32 Swizzled = ((((Texel >> 0) & 0xFF) << 16) |
-                                (((Texel >> 8) & 0xFF) << 8) |
-                                (((Texel >> 16) & 0xFF) << 0) |
-                                (((Texel >> 24) & 0xFF) << 24));
-                *TexelPtr++ = Swizzled;
-            }
-            
-            Row += Bitmap.Pitch;
-        }
-        
-        u32 BitmapSize = (u32)(Bitmap.Pitch*Bitmap.Height);
-        
-        bitmap_header BitmapHeader = {};
-        BitmapHeader.Type = 0x4D42;
-        BitmapHeader.FileSize = sizeof(BitmapHeader) + BitmapSize;
-        BitmapHeader.OffBits = sizeof(BitmapHeader);
-        BitmapHeader.Size = 40; // sizeof(BITMAPINFOHEADER)
-        BitmapHeader.Width = Bitmap.Width;
-        BitmapHeader.Height = Bitmap.Height;
-        BitmapHeader.Planes = 1;
-        BitmapHeader.BitCount = 32;
-        BitmapHeader.Compression = BI_RGB;
-        
-        fwrite(&BitmapHeader, sizeof(BitmapHeader), 1,  File);
-        fwrite(Bitmap.Memory, BitmapSize, 1, File);
-        
-        fclose(File);
-    }
-}
+int main(int argc, char **argv) {
+	if (argc <= 1) {
+		fprintf(stderr, "Usage: %s <source path> [cluster count] [seed] [sort type] [dest path]\n", argv[0]);
+		exit(EXIT_FAILURE);
+	}
 
-int
-main(int ArgCount, char **Args)
-{
-    if(ArgCount > 1)
-    {
-        palettize_config Config = ParseCommandLine(ArgCount, Args);
+	Palettize_Config config = parse_config_from_command_line(argc, argv);
 
-        kmeans_context Context_;
-        kmeans_context *Context = &Context_;
-        InitializeKMeansContext(Context, Config.ClusterCount);
+	// To improve performance, source images with extents greater than
+	// MAX_BITMAP_DIM pixels are resized with nearest neighbor sampling
+	Bitmap source_bitmap;
+	load_bitmap(&source_bitmap, config.source_path);
+	if (source_bitmap.width > MAX_BITMAP_DIM || source_bitmap.height > MAX_BITMAP_DIM) {
+		resize_bitmap(&source_bitmap, MAX_BITMAP_DIM);
+	}
 
-        // To improve performance, the source image is scaled such that its
-        // largest dimension has a value of 100 pixels
-        // @Refactor: Decouple scaling from loading so that small images are
-        // not resized to be bigger
-        bitmap Bitmap = LoadAndScaleBitmap(Config.SourcePath, 100.0f);
-        
-        bitmap PrevClusterIndexBuffer = AllocateBitmap(Bitmap.Width, Bitmap.Height);
+	Bitmap prev_cluster_index_buffer;
+	allocate_bitmap(&prev_cluster_index_buffer, source_bitmap.width, source_bitmap.height);
 
-        int PaletteWidth = 512;
-        int PaletteHeight = 64;
-        bitmap Palette = AllocateBitmap(PaletteWidth, PaletteHeight);
+	Random_Series entropy = seed_series(config.seed);
 
-        if(Context->Clusters &&
-           Bitmap.Memory &&
-           PrevClusterIndexBuffer.Memory &&
-           Palette.Memory)
-        {
-            // For those curious about how the algorithm works, see:
-            // https://www.youtube.com/watch?v=4b5d3muPQmA
+	int cluster_count = config.cluster_count;
+	KMeans_Cluster *clusters = (KMeans_Cluster *)malloc(sizeof(KMeans_Cluster)*cluster_count);
+	for (int i = 0; i < cluster_count; i++) {
+		KMeans_Cluster *cluster = &clusters[i];
 
-            random_series Entropy = SeedSeries(Config.Seed);
-            for(int ClusterIndex = 0;
-                ClusterIndex < Context->ClusterCount;
-                ClusterIndex++)
-            {
-                cluster *Cluster = Context->Clusters + ClusterIndex;
-                
-                ClearObservations(Cluster);
+		cluster->observation_capacity = 512;
+		cluster->observation_count = 0;
+		cluster->observations = (Vector3 *)malloc(sizeof(Vector3)*cluster->observation_capacity);
 
-                u32 SampleX = RandomU32Between(&Entropy, 0, (u32)(Bitmap.Width - 1));
-                u32 SampleY = RandomU32Between(&Entropy, 0, (u32)(Bitmap.Height - 1));
-                u32 Sample = *(u32 *)GetBitmapPtr(Bitmap, SampleX, SampleY);
-    
-                Cluster->Centroid = UnpackRGBAToCIELAB(Sample);
-            }                
+		// Naive cluster seeding
+		u32 sample_x = random_u32_between(&entropy, 0, (u32)(source_bitmap.width - 1));
+		u32 sample_y = random_u32_between(&entropy, 0, (u32)(source_bitmap.height - 1));
+		u32 sample = *(u32 *)get_bitmap_ptr(source_bitmap, sample_x, sample_y);
 
-            int MinX = 0;
-            int MinY = 0;
-            int MaxX = Bitmap.Width;
-            int MaxY = Bitmap.Height;
+		cluster->centroid = unpack_rgba_to_cielab(sample);
+	}
 
-            b32 IteratedOnce = false;
-            for(int Iteration = 0;
-                ;
-                Iteration++)
-            {   
-                b32 Changed = false;
+	int x0 = 0;
+	int x1 = source_bitmap.width;
+	int y0 = 0;
+	int y1 = source_bitmap.height;
 
-                u8 *Row = (u8 *)GetBitmapPtr(Bitmap, MinX, MinY);
-                u8 *PrevClusterIndexRow = (u8 *)GetBitmapPtr(PrevClusterIndexBuffer, MinX, MinY);
-                for(int Y = MinY;
-                    Y < MaxY;
-                    Y++)
-                {
-                    u32 *TexelPtr = (u32 *)Row;
-                    u32 *PrevClusterIndexPtr = (u32 *)PrevClusterIndexRow;
-                    for(int X = MinX;
-                        X < MaxX;
-                        X++)
-                    {
-                        v3 TexelV3 = UnpackRGBAToCIELAB(*TexelPtr);
-                        u32 ClusterIndex = AssignObservation(Context, TexelV3);
+	for (int iteration = 0;; iteration++) {
+		bool assignments_changed = false;
 
-                        if(Iteration > 0)
-                        {
-                            u32 PrevClusterIndex = *PrevClusterIndexPtr;
-                            if(ClusterIndex != PrevClusterIndex)
-                            {
-                                Changed = true;
-                            }
-                        }
-                        *PrevClusterIndexPtr = ClusterIndex;
+		u8 *row = (u8 *)get_bitmap_ptr(source_bitmap, x0, y0);
+		u8 *prev_cluster_index_row = (u8 *)get_bitmap_ptr(prev_cluster_index_buffer, x0, y0);
+		for (int y = y0; y < y1; y++) {
+			u32 *texel = (u32 *)row;
+			u32 *prev_cluster_index_ptr = (u32 *)prev_cluster_index_row;
+			for (int x = x0; x < x1; x++) {
+				Vector3 texel_v3 = unpack_rgba_to_cielab(*texel);
 
-                        TexelPtr++;
-                        PrevClusterIndexPtr++;
-                    }
+				u32 closest_cluster_index = assign_observation_to_cluster(clusters, cluster_count, texel_v3);
+				if (iteration > 0) {
+					u32 prev_cluster_index = *prev_cluster_index_ptr;
+					if (closest_cluster_index != prev_cluster_index) {
+						assignments_changed = true;
+					}
+				}
 
-                    Row += Bitmap.Pitch;
-                    PrevClusterIndexRow += PrevClusterIndexBuffer.Pitch;
-                }
+				texel++;
+				*prev_cluster_index_ptr++ = closest_cluster_index;
+			}
 
-                if(Iteration == 0)
-                {   
-                    RecalculateCentroids(Context);
-                }             
-                else
-                {    
-                    if(Changed)
-                    {
-                        RecalculateCentroids(Context);
-                    }
-                    else
-                    {
-                        break;
-                    }
-                }
-            }
-      
-            SortClustersByCentroid(Context, Config.SortType);
-            
-            u8 *ScanLine = (u8 *)malloc(sizeof(u32)*PaletteWidth);
-            
-            int TotalObservationCount = ComputeTotalObservationCount(Context);
-            u32 *Row = (u32 *)ScanLine;
-            for(int ClusterIndex = 0;
-                ClusterIndex < Context->ClusterCount;
-                ClusterIndex++)
-            {
-                cluster *Cluster = Context->Clusters + ClusterIndex;
+			row += source_bitmap.pitch;
+			prev_cluster_index_row += prev_cluster_index_buffer.pitch;
+		}
 
-                f32 Weight = SafeRatio0((f32)Cluster->ObservationCount,
-                                        (f32)TotalObservationCount);
-                int ClusterPixelWidth = RoundToInt(Weight*PaletteWidth);
+		if (iteration > 0 && !assignments_changed) break;
 
-                u32 CentroidColor = PackCIELABToRGBA(Cluster->Centroid);
-                while(ClusterPixelWidth--)
-                {
-                    *Row++ = CentroidColor;
-                }
-            }
-            
-            u8 *DestRow = (u8 *)Palette.Memory;
-            for(int Y = 0;
-                Y < PaletteHeight;
-                Y++)
-            {
-                u32 *SourceTexelPtr = (u32 *)ScanLine;
-                u32 *DestTexelPtr = (u32 *)DestRow;
-                for(int X = 0;
-                    X < PaletteWidth;
-                    X++)
-                {
-                    *DestTexelPtr++ = *SourceTexelPtr++;
-                }
-                
-                DestRow += Palette.Pitch;
-            }
-            
-            ExportBMP(Palette, Config.DestPath);
-        }
-        else
-        {
-            fprintf(stderr, "Error: malloc failed at startup\n");
-        }
-    }
-    else
-    {
-        fprintf(stderr, "Usage: %s [source path] [cluster count] [seed] [sort type] [dest path]\n", Args[0]);
-    }
-    
-    return(0);
+		recalculate_cluster_centroids(clusters, cluster_count);
+	}
+
+	sort_clusters_by_centroid(clusters, cluster_count, config.sort_type);
+
+	u8 *scanline = (u8 *)malloc(sizeof(u32)*PALETTE_BITMAP_WIDTH);
+
+	u32 *row = (u32 *)scanline;
+	for (int i = 0; i < cluster_count; i++) {
+		KMeans_Cluster *cluster = &clusters[i];
+
+		float weight = (float)cluster->observation_count / (float)(source_bitmap.width*source_bitmap.height);
+		int cluster_width = roundi(weight*PALETTE_BITMAP_WIDTH);
+
+		u32 color = pack_cielab_to_rgba(cluster->centroid);
+		while (cluster_width--) {
+			*row++ = color;
+		}
+	}
+
+	Bitmap palette_bitmap;
+	allocate_bitmap(&palette_bitmap, PALETTE_BITMAP_WIDTH, PALETTE_BITMAP_HEIGHT);
+	u8 *dest_row = (u8 *)palette_bitmap.memory;
+	for (int y = 0; y < palette_bitmap.height; y++) {
+		u32 *source_texel = (u32 *)scanline;
+		u32 *dest_texel = (u32 *)dest_row;
+		for (int x = 0; x < palette_bitmap.width; x++) {
+			*dest_texel++ = *source_texel++;
+		}
+
+		dest_row += palette_bitmap.pitch;
+	}
+
+	export_bmp(&palette_bitmap, config.dest_path);
+
+	return 0;
 }

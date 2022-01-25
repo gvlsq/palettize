@@ -1,318 +1,228 @@
-#if !defined(PALETTIZE_MATH_H)
+#ifndef PALETTIZE_MATH_H
+#define PALETTIZE_MATH_H
 
 #include <float.h>
 #include <math.h>
 
-#define F32Max FLT_MAX
-#define F32Epsilon FLT_EPSILON
+#define abs fabsf
+#define cbrt cbrtf
+#define pow powf
+#define round roundf
+#define sqrt sqrtf
 
-struct v3
-{
-    f32 x, y, z;
+#define FLOAT_MAX FLT_MAX
+#define FLOAT_EPSILON FLT_EPSILON
+
+struct Vector3 {
+	float x, y, z;
 };
 
-struct m3x3
-{
-    v3 XAxis;
-    v3 YAxis;
-    v3 ZAxis;
+struct Matrix3 {
+	Vector3 x_axis;
+	Vector3 y_axis;
+	Vector3 z_axis;
 };
 
-inline v3
-V3(f32 X, f32 Y, f32 Z)
-{
-    v3 Result;
-    Result.x = X;
-    Result.y = Y;
-    Result.z = Z;
-    
-    return(Result);
+// 
+// Scalar
+// 
+
+inline float clamp(float l, float s, float h) {
+	float result = s;
+
+	if (result < l) result = l;
+	else if (result > h) result = h;
+
+	return result;
 }
 
-inline v3
-V3i(int X, int Y, int Z)
-{
-    v3 Result = V3((f32)X, (f32)Y, (f32)Z);
-    
-    return(Result);
+inline int clampi(int l, int s, int h) {
+	int result = (int)clamp((float)l, (float)s, (float)h);
+
+	return result;
+}
+
+inline float clamp01(float S) {
+	float result = clamp(0.0f, S, 1.0f);
+
+	return result;
+}
+
+inline float cube(float s) {
+	float result = s*s*s;
+
+	return result;
+}
+
+inline bool equals_approx(float a, float b) {
+	bool result = abs(b - a) <= FLOAT_EPSILON;
+
+	return result;
+}
+
+inline int roundi(float s) {
+	int result = (int)round(s);
+
+	return result;
+}
+
+inline u32 round_u32(float s) {
+	u32 result = (u32)round(s);
+
+	return result;
+}
+
+inline float safe_ratioN(float x, float y, float N) {
+	float result = N;
+
+	if (y != 0.0f) {
+		result = x / y;
+	}
+
+	return result;
+}
+
+inline float safe_ratio0(float x, float y) {
+	float result = safe_ratioN(x, y, 0.0f);
+
+	return result;
+}
+
+inline float square(float s) {
+	float result = s*s;
+
+	return result;
 }
 
 // 
-// Scalar operations
+// Vector3
 // 
 
-inline f32
-Abs(f32 S)
-{
-    f32 Result = fabsf(S);
+inline float linear_rgb_to_srgb(float v);
+inline float srgb_to_linear_rgb(float channel);
 
-    return(Result);
+inline Vector3 V3(float x, float y, float z) {
+	Vector3 result;
+	result.x = x;
+	result.y = y;
+	result.z = z;
+
+	return result;
 }
 
-inline f32
-Clamp(f32 Min, f32 S, f32 Max)
-{
-    f32 Result = S;
+inline Vector3 V3i(int x, int y, int z) {
+	Vector3 result = V3((float)x, (float)y, (float)z);
 
-    if(Result < Min)
-    {
-        Result = Min;
-    }
-    else if(Result > Max)
-    {
-        Result = Max;
-    }
-
-    return(Result);
+	return result;
 }
 
-inline int
-Clampi(int Min, int S, int Max)
-{
-    int Result = (int)Clamp((f32)Min, (f32)S, (f32)Max);
-    
-    return(Result);
+inline Vector3 operator+(Vector3 a, Vector3 b) {
+	Vector3 result;
+	result.x = a.x + b.x;
+	result.y = a.y + b.y;
+	result.z = a.z + b.z;
+
+	return result;
 }
 
-inline f32
-Clamp01(f32 S)
-{
-    f32 Result = Clamp(0.0f, S, 1.0f);
-    
-    return(Result);
+inline Vector3 operator-(Vector3 a, Vector3 b) {
+	Vector3 result;
+	result.x = a.x - b.x;
+	result.y = a.y - b.y;
+	result.z = a.z - b.z;
+
+	return result;
 }
 
-inline f32
-Cube(f32 S)
-{
-    f32 Result = S*S*S;
+inline Vector3 operator*(Vector3 a, float s) {
+	Vector3 result;
+	result.x = a.x*s;
+	result.y = a.y*s;
+	result.z = a.z*s;
 
-    return(Result);
+	return result;
 }
 
-inline f32
-CubeRoot(f32 S)
-{
-    f32 Result = cbrtf(S);
-    
-    return(Result);
+inline Vector3 &operator+=(Vector3 &a, Vector3 b) {
+	a = a + b;
+
+	return a;
 }
 
-inline b32
-EqualsApproximately(float A, float B)
-{
-    b32 Result = Abs(B - A) <= F32Epsilon;
+inline Vector3 &operator*=(Vector3 &a, float s) {
+	a = a*s;
 
-    return(Result);
+	return a;
 }
 
-inline f32
-Pow(f32 X, f32 Y)
-{
-    f32 Result = powf(X, Y);
-    
-    return(Result);
+inline float dot(Vector3 a, Vector3 b) {
+	float result = a.x*b.x + a.y*b.y + a.z*b.z;
+
+	return result;
 }
 
-inline f32
-Round(f32 S)
-{
-    f32 Result = roundf(S);
+inline bool equals_approx(Vector3 a, Vector3 b) {
+	bool result = equals_approx(a.x, b.x) && equals_approx(a.y, b.y) && equals_approx(a.z, b.z);
 
-    return(Result);
+	return result;
 }
 
-inline int
-RoundToInt(f32 S)
-{
-    int Result = (int)Round(S);
-    
-    return(Result);
+inline float length_squared(Vector3 v) {
+	float result = dot(v, v);
+
+	return result;
 }
 
-inline u32
-RoundToU32(f32 S)
-{
-    u32 Result = (u32)Round(S);
-    
-    return(Result);
+inline Vector3 linear_rgb_to_srgb(Vector3 v) {
+	Vector3 result;
+	result.x = linear_rgb_to_srgb(v.x);
+	result.y = linear_rgb_to_srgb(v.y);
+	result.z = linear_rgb_to_srgb(v.z);
+
+	return result;
 }
 
-inline f32
-SafeRatioN(f32 Dividend, f32 Divisor, f32 N)
-{
-    f32 Result = N;
-    if(Divisor != 0.0f)
-    {
-        Result = (Dividend / Divisor);
-    }
+inline u32 pack_rgba(Vector3 v) {
+	u32 result = round_u32(v.x*255.0f) << 0 | round_u32(v.y*255.0f) << 8 | round_u32(v.z*255.0f) << 16 | 255 << 24;
 
-    return(Result);
+	return result;
 }
 
-inline f32
-SafeRatio0(f32 Dividend, f32 Divisor)
-{
-    f32 Result = SafeRatioN(Dividend, Divisor, 0.0f);
-    
-    return(Result);
+inline Vector3 srgb_to_linear_rgb(Vector3 v) {
+	Vector3 result;
+	result.x = srgb_to_linear_rgb(v.x);
+	result.y = srgb_to_linear_rgb(v.y);
+	result.z = srgb_to_linear_rgb(v.z);
+
+	return result;
 }
 
-inline f32
-Square(f32 S)
-{
-    f32 Result = S*S;
-    
-    return(Result);
-}
+inline Vector3 unpack_rgba(u32 u) {
+	float inv_255 = 1.0f / 255.0f;
 
-inline f32
-SquareRoot(f32 S)
-{
-    f32 Result = sqrtf(S);
-    
-    return(Result);
+	Vector3 result;
+	result.x = ((u >> 0) & 0xFF)*inv_255;
+	result.y = ((u >> 8) & 0xFF)*inv_255;
+	result.z = ((u >> 16) & 0xFF)*inv_255;
+
+	return result;
 }
 
 // 
-// v3 operations
+// Matrix3
 // 
 
-inline v3
-operator+(v3 A, v3 B)
-{
-    v3 Result;
-    Result.x = A.x + B.x;
-    Result.y = A.y + B.y;
-    Result.z = A.z + B.z;
-    
-    return(Result);
-}
+inline Vector3 operator*(Matrix3 m, Vector3 v) {
+	Vector3 result;
+	result.x = dot(V3(m.x_axis.x, m.y_axis.x, m.z_axis.x), v);
+	result.y = dot(V3(m.x_axis.y, m.y_axis.y, m.z_axis.y), v);
+	result.z = dot(V3(m.x_axis.z, m.y_axis.z, m.z_axis.z), v);
 
-inline v3
-operator-(v3 A, v3 B)
-{
-    v3 Result;
-    Result.x = A.x - B.x;
-    Result.y = A.y - B.y;
-    Result.z = A.z - B.z;
-    
-    return(Result);
-}
-
-inline v3
-operator*(v3 A, f32 S)
-{
-    v3 Result;
-    Result.x = A.x*S;
-    Result.y = A.y*S;
-    Result.z = A.z*S;
-    
-    return(Result);
-}
-
-inline void
-operator+=(v3 &A, v3 B)
-{
-    A = A + B;
-}
-
-inline void
-operator*=(v3 &A, f32 S)
-{
-    A = A*S;
-}
-
-inline f32
-Dot(v3 A, v3 B)
-{
-    f32 Result = ((A.x*B.x) +
-                  (A.y*B.y) +
-                  (A.z*B.z));
-    return(Result);
-}
-
-inline b32
-EqualsApproximately(v3 A, v3 B)
-{
-    b32 Result = (EqualsApproximately(A.x, B.x) &&
-                  EqualsApproximately(A.y, B.y) &&
-                  EqualsApproximately(A.z, B.z));
-    return(Result);
-}
-
-inline f32
-LengthSquared(v3 V)
-{
-    f32 Result = Dot(V, V);
-    
-    return(Result);
-}
-
-inline f32 LinearRGBTosRGB(f32 V);
-inline v3
-LinearRGBTosRGB(v3 V)
-{
-    v3 Result;
-    Result.x = LinearRGBTosRGB(V.x);
-    Result.y = LinearRGBTosRGB(V.y);
-    Result.z = LinearRGBTosRGB(V.z);
-    
-    return(Result);
-}
-
-inline u32
-PackRGBA(v3 V)
-{
-    u32 Result = ((RoundToU32(V.x*255.0f) << 0) |
-                  (RoundToU32(V.y*255.0f) << 8) |
-                  (RoundToU32(V.z*255.0f) << 16) |
-                  (255 << 24));
-    return(Result);
-}
-
-inline f32 sRGBToLinearRGB(f32 Channel);
-inline v3
-sRGBToLinearRGB(v3 V)
-{
-    v3 Result;
-    Result.x = sRGBToLinearRGB(V.x);
-    Result.y = sRGBToLinearRGB(V.y);
-    Result.z = sRGBToLinearRGB(V.z);
-    
-    return(Result);
-}
-
-inline v3
-UnpackRGBA(u32 U)
-{
-    f32 Inv255 = 1.0f / 255.0f;
-
-    v3 Result;
-    Result.x = (((U >> 0) & 0xFF)*Inv255);
-    Result.y = (((U >> 8) & 0xFF)*Inv255);
-    Result.z = (((U >> 16) & 0xFF)*Inv255);
-    
-    return(Result);
+	return result;
 }
 
 // 
-// m3x3 operations
-// 
-
-inline v3
-operator*(m3x3 M, v3 V)
-{
-    v3 Result;
-    Result.x = Dot(V3(M.XAxis.x, M.YAxis.x, M.ZAxis.x), V);
-    Result.y = Dot(V3(M.XAxis.y, M.YAxis.y, M.ZAxis.y), V);
-    Result.z = Dot(V3(M.XAxis.z, M.YAxis.z, M.ZAxis.z), V);
-    
-    return(Result);
-}
-
-// 
-// Color space operations
+// Color space
 // 
 
 // White point coords for Illuminant D65
@@ -320,146 +230,117 @@ operator*(m3x3 M, v3 V)
 #define Yn 1.0f
 #define Zn 1.088830f
 
-inline f32
-InvFt(f32 t)
-{
-    f32 Result;
-    f32 Sigma = (6.0f / 29.0f);
-    if(t > Sigma)
-    {
-        Result = Cube(t);
-    }
-    else
-    {
-        Result = ((3.0f*Square(Sigma))*(t - (4.0f / 29.0f)));
-    }
-    
-    return(Result);
+inline float inv_ft(float t) {
+	float result;
+
+	float sigma = 6.0f / 29.0f;
+	if (t > sigma) {
+		result = cube(t);
+	} else {
+		result = (3.0f*square(sigma))*(t - (4.0f / 29.0f));
+	}
+
+	return result;
 }
 
-inline v3
-CIELABToCIEXYZ(v3 V)
-{
-    v3 Result;
-    Result.x = (Xn*InvFt(((V.x + 16.0f) / 116.0f) + (V.y / 500.0f)));
-    Result.y = (Yn*InvFt((V.x + 16.0f) / 116.0f));
-    Result.z = (Zn*InvFt(((V.x + 16.0f) / 116.0f) - (V.z / 200.0f)));
-    
-    return(Result);
+inline Vector3 cielab_to_ciexyz(Vector3 v) {
+	Vector3 result;
+	result.x = Xn*inv_ft(((v.x + 16.0f) / 116.0f) + (v.y / 500.0f));
+	result.y = Yn*inv_ft((v.x + 16.0f) / 116.0f);
+	result.z = Zn*inv_ft(((v.x + 16.0f) / 116.0f) - (v.z / 200.0f));
+
+	return result;
 }
 
-inline f32
-Ft(f32 t)
-{
-    f32 Result;
-    f32 Sigma = (6.0f / 29.0f);
-    if(t > Cube(Sigma))
-    {
-        Result = CubeRoot(t);
-    }
-    else
-    {
-        Result = ((t / (3.0f*Square(Sigma))) + (4.0f / 29.0f));
-    }
-    
-    return(Result);
+inline float Ft(float t) {
+	float result;
+
+	float sigma = 6.0f / 29.0f;
+	if (t > cube(sigma)) {
+		result = cbrt(t);
+	} else {
+		result = (t / (3.0f*square(sigma))) + (4.0f / 29.0f);
+	}
+
+	return result;
 }
 
-inline v3
-CIEXYZToCIELAB(v3 V)
-{
-    v3 Result;
-    Result.x = (116.0f*Ft(V.y / Yn) - 16.0f);
-    Result.y = (500.0f*(Ft(V.x / Xn) - Ft(V.y / Yn)));
-    Result.z = (200.0f*(Ft(V.y / Yn) - Ft(V.z / Zn)));
-    
-    return(Result);
+inline Vector3 ciexyz_to_cielab(Vector3 v) {
+	Vector3 result;
+	result.x = 116.0f*Ft(v.y / Yn) - 16.0f;
+	result.y = 500.0f*(Ft(v.x / Xn) - Ft(v.y / Yn));
+	result.z = 200.0f*(Ft(v.y / Yn) - Ft(v.z / Zn));
+
+	return result;
 }
 
-inline v3
-CIEXYZToLinearRGB(v3 V)
-{
-    m3x3 Matrix;
-    Matrix.XAxis = V3(3.2404542f, -0.9692660f, 0.0556434f);
-    Matrix.YAxis = V3(-1.5371385f, 1.8760108f, -0.2040259f);
-    Matrix.ZAxis = V3(-0.4985314f, 0.0415560f, 1.0572252f);
-    v3 Result = Matrix*V;
-    
-    return(Result);
+inline Vector3 ciexyz_to_linear_rgb(Vector3 v) {
+	Matrix3 m;
+	m.x_axis = V3(3.2404542f, -0.9692660f, 0.0556434f);
+	m.y_axis = V3(-1.5371385f, 1.8760108f, -0.2040259f);
+	m.z_axis = V3(-0.4985314f, 0.0415560f, 1.0572252f);
+
+	Vector3 result = m*v;
+
+	return result;
 }
 
-inline v3
-LinearRGBToCIEXYZ(v3 V)
-{
-    m3x3 Matrix;
-    Matrix.XAxis = V3(0.4124564f, 0.2126729f, 0.0193339f);
-    Matrix.YAxis = V3(0.3575761f, 0.7151522f, 0.1191920f);
-    Matrix.ZAxis = V3(0.1804375f, 0.0721750f, 0.9503041f);
-    v3 Result = Matrix*V;
-    
-    return(Result);
+inline Vector3 linear_rgb_to_ciexyz(Vector3 v) {
+	Matrix3 m;
+	m.x_axis = V3(0.4124564f, 0.2126729f, 0.0193339f);
+	m.y_axis = V3(0.3575761f, 0.7151522f, 0.1191920f);
+	m.z_axis = V3(0.1804375f, 0.0721750f, 0.9503041f);
+
+	Vector3 result = m*v;
+
+	return result;
 }
 
-inline f32
-LinearRGBTosRGB(f32 S)
-{
-    S = Clamp01(S);
-    
-    f32 Result;
-    if(S <= 0.0031308f)
-    {
-        Result = 12.92f*S;
-    }
-    else
-    {
-        Result = ((1.055f*Pow(S, (1.0f / 2.4f))) - 0.055f);
-    }
-    
-    return(Result);
+inline float linear_rgb_to_srgb(float s) {
+	s = clamp01(s);
+
+	float result;
+	if (s <= 0.0031308f) {
+		result = 12.92f*s;
+	} else {
+		result = (1.055f*pow(s, (1.0f / 2.4f))) - 0.055f;
+	}
+
+	return result;
 }
 
-inline u32
-PackCIELABToRGBA(v3 V)
-{
-    v3 CIELAB = V;
-    v3 CIEXYZ = CIELABToCIEXYZ(CIELAB);
-    v3 LinearRGB = CIEXYZToLinearRGB(CIEXYZ);
-    v3 sRGB = LinearRGBTosRGB(LinearRGB);
-    u32 Result = PackRGBA(sRGB);
-    
-    return(Result);
+inline u32 pack_cielab_to_rgba(Vector3 v) {
+	Vector3 cielab = v;
+	Vector3 ciexyz = cielab_to_ciexyz(cielab);
+	Vector3 linear_rgb = ciexyz_to_linear_rgb(ciexyz);
+	Vector3 srgb = linear_rgb_to_srgb(linear_rgb);
+	u32 result = pack_rgba(srgb);
+
+	return result;
 }
 
-inline f32
-sRGBToLinearRGB(f32 S)
-{
-    S = Clamp01(S);
-    
-    f32 Result;
-    if(S <= 0.04045f)
-    {
-        Result = S / 12.92f;
-    }
-    else
-    {
-        Result = Pow(((S + 0.055f) / 1.055f), 2.4f);
-    }
-    
-    Assert((0.0f <= Result) && (Result <= 1.0f));
-    
-    return(Result);
+inline float srgb_to_linear_rgb(float s) {
+	s = clamp01(s);
+
+	float result;
+	if (s <= 0.04045f) {
+		result = s / 12.92f;
+	} else {
+		result = pow(((s + 0.055f) / 1.055f), 2.4f);
+	}
+
+	assert(0.0f <= result && result <= 1.0f);
+
+	return result;
 }
 
-inline v3
-UnpackRGBAToCIELAB(u32 U)
-{
-    v3 sRGB = UnpackRGBA(U);
-    v3 LinearRGB = sRGBToLinearRGB(sRGB);
-    v3 CIEXYZ = LinearRGBToCIEXYZ(LinearRGB);
-    v3 CIELAB = CIEXYZToCIELAB(CIEXYZ);
-    
-    return(CIELAB);
+inline Vector3 unpack_rgba_to_cielab(u32 u) {
+	Vector3 srgb = unpack_rgba(u);
+	Vector3 linear_rgb = srgb_to_linear_rgb(srgb);
+	Vector3 ciexyz = linear_rgb_to_ciexyz(linear_rgb);
+	Vector3 cielab = ciexyz_to_cielab(ciexyz);
+
+	return cielab;
 }
 
-#define PALETTIZE_MATH_H
 #endif

@@ -134,7 +134,7 @@
       <TreatWarningAsError>true</TreatWarningAsError>
       <RuntimeLibrary>MultiThreadedDebug</RuntimeLibrary>
       <ExceptionHandling>false</ExceptionHandling>
-      <DisableSpecificWarnings>4189</DisableSpecificWarnings>
+      <DisableSpecificWarnings>4189; 4505; 26812;</DisableSpecificWarnings>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
@@ -170,7 +170,6 @@
     <ClInclude Include="..\..\src\palettize_math.h" />
     <ClInclude Include="..\..\src\palettize_random.h" />
     <ClInclude Include="..\..\src\palettize_string.h" />
-    <ClInclude Include="..\..\src\palettize_time.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

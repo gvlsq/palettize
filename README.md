@@ -8,11 +8,13 @@ Original photo by Francesco Ungaro from Pexels.
 
 ## Motivation
 
-This application uses a standard implementation of k-means clustering to generate palettes. The twist is in how colors from the input image are compared to each cluster.
+This application uses a standard implementation of k-means clustering to generate palettes. The twist is in how colors from the source image are interpreted by the program.
 
-A straightforward implementation might compute color differences using RGB values directly from the image, but this can lead to issues: the math might say that two colors are similar when, perceptually speaking, they are not.
+A straightforward implementation might use RGB values directly from the image, but this can lead to issues: the distance function for k-means might say that two colors are similar when, perceptually, they are not.
 
-The approach taken here transforms colors into [CIELAB](https://en.wikipedia.org/wiki/CIELAB_color_space#Perceptual_differences) space before any comparisons take place. This makes comparisons more meaningful and hopefully produces a more accurate palette.
+This program transforms colors into [CIELAB](https://en.wikipedia.org/wiki/CIELAB_color_space#Perceptual_differences) space before performing any comparisons take place. This makes comparisons more meaningful and hopefully produces a more accurate palette.
+
+For a visual description of how k-means clustering works, see [this YouTube video](https://youtu.be/4b5d3muPQmA?t=33).
 
 ## Usage
 
