@@ -23,56 +23,56 @@ typedef uint32_t u32;
 #include "palettize_string.h"
 
 enum Sort_Type {
-	SORT_TYPE_WEIGHT,
-	SORT_TYPE_RED,
-	SORT_TYPE_GREEN,
-	SORT_TYPE_BLUE,
+    SORT_TYPE_WEIGHT,
+    SORT_TYPE_RED,
+    SORT_TYPE_GREEN,
+    SORT_TYPE_BLUE,
 };
 
 struct Palettize_Config {
-	char *source_path;
-	int cluster_count;
-	u32 seed;
-	Sort_Type sort_type;
-	char *dest_path;
+    char *source_path;
+    int cluster_count;
+    u32 seed;
+    Sort_Type sort_type;
+    char *dest_path;
 };
 
 #define get_bitmap_ptr(b, x, y) ((u8 *)(b).memory + (sizeof(u32)*(x)) + ((y)*(b).pitch))
 struct Bitmap {
-	void *memory;
-	int width;
-	int height;
-	int pitch;
+    void *memory;
+    int width;
+    int height;
+    int pitch;
 };
 
 struct KMeans_Cluster {
-	Vector3 centroid;
+    Vector3 centroid;
 
-	int observation_count;
-	int observation_capacity;
-	Vector3 *observations;
+    int observation_count;
+    int observation_capacity;
+    Vector3 *observations;
 };
 
 #pragma pack(push, 1)
 #define BI_RGB 0x0000
 struct Bitmap_Header {
-	u16 type;
-	u32 file_size;
-	u16 reserved1;
-	u16 reserved2;
-	u32 off_bits;
+    u16 type;
+    u32 file_size;
+    u16 reserved1;
+    u16 reserved2;
+    u32 off_bits;
 
-	u32 size;
-	s32 width;
-	s32 height;
-	u16 planes;
-	u16 bit_count;
-	u32 compression;
-	u32 size_image;
-	s32 x_pels_per_meter;
-	s32 y_pels_per_meter;
-	u32 clr_used;
-	u32 clr_important;
+    u32 size;
+    s32 width;
+    s32 height;
+    u16 planes;
+    u16 bit_count;
+    u32 compression;
+    u32 size_image;
+    s32 x_pels_per_meter;
+    s32 y_pels_per_meter;
+    u32 clr_used;
+    u32 clr_important;
 };
 #pragma pack(pop)
 
