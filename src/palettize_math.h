@@ -42,8 +42,8 @@ inline int clampi(int l, int s, int h) {
     return result;
 }
 
-inline float clamp01(float S) {
-    float result = clamp(0.0f, S, 1.0f);
+inline float clamp01(float s) {
+    float result = clamp(0.0f, s, 1.0f);
 
     return result;
 }
@@ -66,14 +66,14 @@ inline int roundi(float s) {
     return result;
 }
 
-inline u32 round_u32(float s) {
+inline u32 roundu(float s) {
     u32 result = (u32)round(s);
 
     return result;
 }
 
-inline float safe_ratioN(float x, float y, float N) {
-    float result = N;
+inline float safe_ratio_n(float x, float y, float n) {
+    float result = n;
 
     if (y != 0.0f) {
         result = x / y;
@@ -82,8 +82,8 @@ inline float safe_ratioN(float x, float y, float N) {
     return result;
 }
 
-inline float safe_ratio0(float x, float y) {
-    float result = safe_ratioN(x, y, 0.0f);
+inline float safe_ratio_0(float x, float y) {
+    float result = safe_ratio_n(x, y, 0.0f);
 
     return result;
 }
@@ -101,7 +101,7 @@ inline float square(float s) {
 inline float linear_rgb_to_srgb(float v);
 inline float srgb_to_linear_rgb(float channel);
 
-inline Vector3 V3(float x, float y, float z) {
+inline Vector3 vector3(float x, float y, float z) {
     Vector3 result;
     result.x = x;
     result.y = y;
@@ -110,8 +110,8 @@ inline Vector3 V3(float x, float y, float z) {
     return result;
 }
 
-inline Vector3 V3i(int x, int y, int z) {
-    Vector3 result = V3((float)x, (float)y, (float)z);
+inline Vector3 vector3i(int x, int y, int z) {
+    Vector3 result = vector3((float)x, (float)y, (float)z);
 
     return result;
 }
@@ -183,7 +183,7 @@ inline Vector3 linear_rgb_to_srgb(Vector3 v) {
 }
 
 inline u32 pack_rgba(Vector3 v) {
-    u32 result = round_u32(v.x*255.0f) << 0 | round_u32(v.y*255.0f) << 8 | round_u32(v.z*255.0f) << 16 | 255 << 24;
+    u32 result = roundu(v.x*255.0f) << 0 | roundu(v.y*255.0f) << 8 | roundu(v.z*255.0f) << 16 | 255 << 24;
 
     return result;
 }
@@ -214,9 +214,9 @@ inline Vector3 unpack_rgba(u32 u) {
 
 inline Vector3 operator*(Matrix3 m, Vector3 v) {
     Vector3 result;
-    result.x = dot(V3(m.x_axis.x, m.y_axis.x, m.z_axis.x), v);
-    result.y = dot(V3(m.x_axis.y, m.y_axis.y, m.z_axis.y), v);
-    result.z = dot(V3(m.x_axis.z, m.y_axis.z, m.z_axis.z), v);
+    result.x = dot(vector3(m.x_axis.x, m.y_axis.x, m.z_axis.x), v);
+    result.y = dot(vector3(m.x_axis.y, m.y_axis.y, m.z_axis.y), v);
+    result.z = dot(vector3(m.x_axis.z, m.y_axis.z, m.z_axis.z), v);
 
     return result;
 }
@@ -276,9 +276,9 @@ inline Vector3 ciexyz_to_cielab(Vector3 v) {
 
 inline Vector3 ciexyz_to_linear_rgb(Vector3 v) {
     Matrix3 m;
-    m.x_axis = V3(3.2404542f, -0.9692660f, 0.0556434f);
-    m.y_axis = V3(-1.5371385f, 1.8760108f, -0.2040259f);
-    m.z_axis = V3(-0.4985314f, 0.0415560f, 1.0572252f);
+    m.x_axis = vector3(3.2404542f, -0.9692660f, 0.0556434f);
+    m.y_axis = vector3(-1.5371385f, 1.8760108f, -0.2040259f);
+    m.z_axis = vector3(-0.4985314f, 0.0415560f, 1.0572252f);
 
     Vector3 result = m*v;
 
@@ -287,9 +287,9 @@ inline Vector3 ciexyz_to_linear_rgb(Vector3 v) {
 
 inline Vector3 linear_rgb_to_ciexyz(Vector3 v) {
     Matrix3 m;
-    m.x_axis = V3(0.4124564f, 0.2126729f, 0.0193339f);
-    m.y_axis = V3(0.3575761f, 0.7151522f, 0.1191920f);
-    m.z_axis = V3(0.1804375f, 0.0721750f, 0.9503041f);
+    m.x_axis = vector3(0.4124564f, 0.2126729f, 0.0193339f);
+    m.y_axis = vector3(0.3575761f, 0.7151522f, 0.1191920f);
+    m.z_axis = vector3(0.1804375f, 0.0721750f, 0.9503041f);
 
     Vector3 result = m*v;
 

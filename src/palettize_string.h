@@ -15,8 +15,7 @@ inline char flip_case(char c) {
 
 inline bool strings_match(char *a, char *b, bool case_sensitive = true) {
     while (*a && *b) {
-        if (*a == *b ||
-            (!case_sensitive && *a == flip_case(*b))) {
+        if (*a == *b || (!case_sensitive && *a == flip_case(*b))) {
             a++;
             b++;
         } else {
