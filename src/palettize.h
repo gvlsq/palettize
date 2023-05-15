@@ -4,13 +4,15 @@
 #include <assert.h>
 #include <stdint.h>
 
-#define Invalid_Code_Path assert(!"Invalid code path")
-#define Invalid_Default_Case default: {Invalid_Code_Path;} break
+#define U32_MAX UINT32_MAX
 
 #define array_count(a) (sizeof((a)) / sizeof((a)[0]))
 
 #define maximum(a, b) ((a) > (b) ? (a) : (b))
 #define minimum(a, b) ((a) < (b) ? (a) : (b))
+
+#define Invalid_Code_Path assert(!"Invalid code path")
+#define Invalid_Default_Case default: {Invalid_Code_Path;} break
 
 typedef int32_t s32;
 
@@ -29,12 +31,23 @@ enum Sort_Type {
     SORT_TYPE_BLUE,
 };
 
+enum Seeding_Type {
+    SEEDING_TYPE_NAIVE,
+    SEEDING_TYPE_PLUSPLUS,
+};
+
 struct Palettize_Config {
     char *source_path;
     int cluster_count;
     u32 seed;
+    Seeding_Type seeding_type;
     Sort_Type sort_type;
     char *dest_path;
+};
+
+struct PlusPlus_Candidate_Seed {
+    Vector3 seed;
+    float nearest_d;
 };
 
 #define get_bitmap_ptr(b, x, y) ((u8 *)(b).memory + (sizeof(u32)*(x)) + ((y)*(b).pitch))

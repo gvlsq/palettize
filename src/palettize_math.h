@@ -10,8 +10,8 @@
 #define round roundf
 #define sqrt sqrtf
 
-#define FLOAT_MAX FLT_MAX
-#define FLOAT_EPSILON FLT_EPSILON
+#define F32_MAX FLT_MAX
+#define F32_EPSILON FLT_EPSILON
 
 struct Vector3 {
     float x, y, z;
@@ -55,7 +55,7 @@ inline float cube(float s) {
 }
 
 inline bool equals_approx(float a, float b) {
-    bool result = abs(b - a) <= FLOAT_EPSILON;
+    bool result = abs(b - a) <= F32_EPSILON;
 
     return result;
 }
@@ -112,6 +112,12 @@ inline Vector3 vector3(float x, float y, float z) {
 
 inline Vector3 vector3i(int x, int y, int z) {
     Vector3 result = vector3((float)x, (float)y, (float)z);
+
+    return result;
+}
+
+inline bool operator==(Vector3 a, Vector3 b) {
+    bool result = a.x == b.x && a.y == b.y && a.z == b.z;
 
     return result;
 }

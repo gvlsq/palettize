@@ -31,4 +31,12 @@ inline u32 random_u32_between(Random_Series *series, u32 min, u32 max) {
     return result;
 }
 
+inline float random_normal(Random_Series *series) {
+    u32 random = random_u32(series);
+
+    float result = (float)random / (float)U32_MAX;
+
+    return result;
+}
+
 #endif
