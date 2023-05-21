@@ -2,7 +2,7 @@
 
 Palette generator based on k-means clustering with CIELAB colors.
 
-![Palette example](https://i.imgur.com/Ahk7vyE.jpg)
+![Palette example](https://i.imgur.com/fjnKYUd.jpg)
 
 Original photo by Francesco Ungaro from Pexels.
 
@@ -21,9 +21,13 @@ For a description of the k-means algorithm itself, see [this YouTube video](http
 The following options are accepted on the command line, in order:
 
 * ```<source path>``` - Path to the input image
-* ```[cluster count]``` - Number of clusters used by the algorithm
+* ```[cluster count]``` - Number of clusters *k* used by the algorithm
 * ```[seed]``` - Seed used by the algorithm
     * This may be useful if you wanted to re-run the application multiple times under the same conditions
+* ```[seeding type```] - Strategy to choose initial values for the algorithm
+    * **naive** randomly chooses *k* texels from the input image
+    * **plusplus** uses k-means++ to choose *k* texels from the input image
+        * The initial values are more likely to be spread out, but this option can also take extra time!
 * ```[sort type]``` - Metric by which colors in the palette should be sorted, from left to right
     * **weight** orders by the weight of each color in the input image
     * **red** orders by the distance of each color from red

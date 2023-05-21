@@ -25,36 +25,47 @@ static Palettize_Config parse_config_from_command_line(int argc, char **argv) {
     config.sort_type = SORT_TYPE_WEIGHT;
     config.dest_path = "palette.bmp";
 
-    if (argc > 1) {
-        config.source_path = argv[1];
-    }
-    if (argc > 2) {
-        int cluster_count = atoi(argv[2]);
-        config.cluster_count = clampi(1, cluster_count, 64);
-    }
-    if (argc > 3) {
-        config.seed = (u32)atoi(argv[3]);
-    }
-    if (argc > 4) {
-        char *seeding_type_string = argv[4];
-        if (strings_match(seeding_type_string, "naive", false)) {
-            config.seeding_type = SEEDING_TYPE_NAIVE;
-        } else if (strings_match(seeding_type_string, "plusplus", false)) {
-            config.seeding_type = SEEDING_TYPE_PLUSPLUS;
+    for (int i = 0; i < argc; i++) {
+        switch (i) {
+            case 1:
+                config.source_path = argv[i];
+                break;
+
+            case 2: {
+                char *endptr;
+                int cluster_count = (int)strtol(argv[i], &endptr, 10);
+
+                config.cluster_count = clampi(1, cluster_count, 64);
+            } break;
+
+            case 3:
+                config.seed = (u32)atoi(argv[i]);
+                break;
+
+            case 4: {
+                char *seeding_type_string = argv[i];
+                if (istrings_match(seeding_type_string, "naive")) {
+                    config.seeding_type = SEEDING_TYPE_NAIVE;
+                } else if (istrings_match(seeding_type_string, "plusplus")) {
+                    config.seeding_type = SEEDING_TYPE_PLUSPLUS;
+                }
+            } break;
+
+            case 5: {
+                char *sort_type_string = argv[i];
+                if (istrings_match(sort_type_string, "red")) {
+                    config.sort_type = SORT_TYPE_RED;
+                } else if (istrings_match(sort_type_string, "green")) {
+                    config.sort_type = SORT_TYPE_GREEN;
+                } else if (istrings_match(sort_type_string, "blue")) {
+                    config.sort_type = SORT_TYPE_BLUE;
+                }
+            } break;
+
+            case 6:
+                config.dest_path = argv[i];
+                break;
         }
-    }
-    if (argc > 5) {
-        char *sort_type_string = argv[5];
-        if (strings_match(sort_type_string, "red", false)) {
-            config.sort_type = SORT_TYPE_RED;
-        } else if (strings_match(sort_type_string, "green", false)) {
-            config.sort_type = SORT_TYPE_GREEN;
-        } else if (strings_match(sort_type_string, "blue", false)) {
-            config.sort_type = SORT_TYPE_BLUE;
-        }
-    }
-    if (argc > 6) {
-        config.dest_path = argv[6];
     }
 
     return config;
@@ -186,24 +197,26 @@ static void sort_clusters_by_centroid(KMeans_Cluster *clusters, int cluster_coun
         bool swapped = false;
 
         for (int j = 0; j < (cluster_count - 1); j++) {
-            KMeans_Cluster *cluster_a = clusters + j;
-            KMeans_Cluster *cluster_b = clusters + j + 1;
+            KMeans_Cluster *a = clusters + j;
+            KMeans_Cluster *b = clusters + j + 1;
 
             if (sort_type == SORT_TYPE_WEIGHT) {
-                if (cluster_b->observation_count > cluster_a->observation_count) {
-                    KMeans_Cluster swap = *cluster_a;
-                    *cluster_a = *cluster_b;
-                    *cluster_b = swap;
+                if (b->observation_count > a->observation_count) {
+                    KMeans_Cluster swap = *a;
+                    *a = *b;
+                    *b = swap;
 
                     swapped = true;
                 }
-            } else if (sort_type == SORT_TYPE_RED || sort_type == SORT_TYPE_GREEN || sort_type == SORT_TYPE_BLUE) {
-                float dist_squared_to_color_a = length_squared(cluster_a->centroid - focal_color);
-                float dist_squared_to_color_b = length_squared(cluster_b->centroid - focal_color);
-                if (dist_squared_to_color_b < dist_squared_to_color_a) {
-                    KMeans_Cluster swap = *cluster_a;
-                    *cluster_a = *cluster_b;
-                    *cluster_b = swap;
+            } else {
+                assert(sort_type == SORT_TYPE_RED || sort_type == SORT_TYPE_GREEN || sort_type == SORT_TYPE_BLUE);
+
+                float da = length_squared(a->centroid - focal_color);
+                float db = length_squared(b->centroid - focal_color);
+                if (db < da) {
+                    KMeans_Cluster swap = *a;
+                    *a = *b;
+                    *b = swap;
 
                     swapped = true;
                 }
@@ -260,7 +273,7 @@ static void export_bmp(Bitmap *bitmap, char *path) {
 
 int main(int argc, char **argv) {
     if (argc <= 1) {
-        fprintf(stderr, "Usage: %s <source path> [cluster count] [seed] [sort type] [dest path]\n", argv[0]);
+        fprintf(stderr, "Usage: %s <source path> [cluster count] [seed] [seeding type] [sort type] [dest path]\n", argv[0]);
         exit(EXIT_FAILURE);
     }
 
@@ -283,10 +296,10 @@ int main(int argc, char **argv) {
     KMeans_Cluster *clusters = (KMeans_Cluster *)malloc(sizeof(KMeans_Cluster)*cluster_count);
     for (int i = 0; i < cluster_count; i++) init_cluster(&clusters[i]);
 
-    int x0 = 0;
-    int x1 = source_bitmap.width;
-    int y0 = 0;
-    int y1 = source_bitmap.height;
+    int xmin = 0;
+    int ymin = 0;
+    int xmax = source_bitmap.width;
+    int ymax = source_bitmap.height;
 
     if (config.seeding_type == SEEDING_TYPE_NAIVE) {
         for (int i = 0; i < cluster_count; i++) {
@@ -315,15 +328,15 @@ int main(int argc, char **argv) {
             float nearest_d_sum = 0.0f;
             int candidate_seed_count = 0;
 
-            u8 *row = (u8 *)get_bitmap_ptr(source_bitmap, x0, y0);
-            for (int y = y0; y < y1; y++) {
+            u8 *row = (u8 *)get_bitmap_ptr(source_bitmap, xmin, ymin);
+            for (int y = ymin; y < ymax; y++) {
                 u32 *texel = (u32 *)row;
-                for (int x = x0; x < x1; x++) {
+                for (int x = xmin; x < xmax; x++) {
                     bool already_chosen = false;
 
-                    Vector3 texel_v3 = unpack_rgba_to_cielab(*texel);
+                    Vector3 vtexel = unpack_rgba_to_cielab(*texel);
                     for (int i = 0; i < seeded_cluster_count; i++) {
-                        if (clusters[i].centroid == texel_v3) {
+                        if (clusters[i].centroid == vtexel) {
                             already_chosen = true;
                             break;
                         }
@@ -335,12 +348,12 @@ int main(int argc, char **argv) {
                         for (int i = 0; i < seeded_cluster_count; i++) {
                             KMeans_Cluster *cluster = &clusters[i];
 
-                            float d = length_squared(cluster->centroid - texel_v3);
+                            float d = length_squared(cluster->centroid - vtexel);
                             if (d < nearest_d) nearest_d = d;
                         }
 
                         PlusPlus_Candidate_Seed *candidate_seed = &candidate_seeds[candidate_seed_count++];
-                        candidate_seed->seed = texel_v3;
+                        candidate_seed->seed = vtexel;
                         candidate_seed->nearest_d = nearest_d;
 
                         nearest_d_sum += nearest_d;
@@ -352,14 +365,11 @@ int main(int argc, char **argv) {
                 row += source_bitmap.pitch;
             }
 
-            float t = random_normal(&entropy);
+            float t = random_uniform(&entropy);
             t *= nearest_d_sum;
 
             for (int i = 0; i < candidate_seed_count; i++) {
-                PlusPlus_Candidate_Seed *candidate_seed = &candidate_seeds[i];
-
-                t -= candidate_seed->nearest_d;
-
+                t -= candidate_seeds[i].nearest_d;
                 if (t < 0.0f) {
                     clusters[seeded_cluster_count++].centroid = candidate_seeds[i].seed;
                     break;
@@ -371,15 +381,15 @@ int main(int argc, char **argv) {
     for (int iteration = 0;; iteration++) {
         bool assignments_changed = false;
 
-        u8 *row = (u8 *)get_bitmap_ptr(source_bitmap, x0, y0);
-        u8 *prev_cluster_index_row = (u8 *)get_bitmap_ptr(prev_cluster_index_buffer, x0, y0);
-        for (int y = y0; y < y1; y++) {
+        u8 *row = (u8 *)get_bitmap_ptr(source_bitmap, xmin, ymin);
+        u8 *prev_cluster_index_row = (u8 *)get_bitmap_ptr(prev_cluster_index_buffer, xmin, ymin);
+        for (int y = ymin; y < ymax; y++) {
             u32 *texel = (u32 *)row;
             u32 *prev_cluster_index_ptr = (u32 *)prev_cluster_index_row;
-            for (int x = x0; x < x1; x++) {
-                Vector3 texel_v3 = unpack_rgba_to_cielab(*texel);
+            for (int x = xmin; x < xmax; x++) {
+                Vector3 vtexel = unpack_rgba_to_cielab(*texel);
 
-                u32 closest_cluster_index = assign_observation_to_cluster(clusters, cluster_count, texel_v3);
+                u32 closest_cluster_index = assign_observation_to_cluster(clusters, cluster_count, vtexel);
                 if (iteration > 0) {
                     u32 prev_cluster_index = *prev_cluster_index_ptr;
                     if (closest_cluster_index != prev_cluster_index) {
